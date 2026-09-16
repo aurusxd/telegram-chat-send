@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,22 +12,20 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
 LOGS_DIR = BASE_DIR / "logs"
-SESSION_PATH = DATA_DIR / "session"
 STATE_PATH = DATA_DIR / "state.json"
 LOG_PATH = LOGS_DIR / "bot.log"
 
-
 DEFAULT_LOG_LEVEL = "INFO"
-
-#: Режимы TCP-транспорта Telethon. obfuscated тяжелее опознаётся DPI.
-CONNECTION_MODES = ("full", "abridged", "intermediate", "obfuscated")
-DEFAULT_CONNECTION_MODE = "full"
-
-#: Типы прокси. mtproxy — прокси самого Telegram, остальные — обычные.
-PROXY_TYPES = ("socks5", "socks4", "http", "mtproxy")
 
 #: Интервал по умолчанию, если он не задан ни в .env, ни в state.json.
 DEFAULT_INTERVAL_MINUTES = 15
+
+#: Имя файла сессии Hydrogram внутри data/ (без расширения .session).
+DEFAULT_SESSION_NAME = "session"
+_SESSION_NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+#: Типы прокси, поддерживаемые Hydrogram (MTProxy он не умеет).
+PROXY_TYPES = ("socks5", "socks4", "http")
 
 
 class ConfigError(RuntimeError):
@@ -42,11 +41,6 @@ class ProxySettings:
     port: int
     username: str | None = None
     password: str | None = None
-    secret: str | None = None
-
-    @property
-    def is_mtproxy(self) -> bool:
-        return self.kind == "mtproxy"
 
 
 @dataclass(frozen=True)
@@ -57,11 +51,16 @@ class Config:
     api_hash: str
     bot_token: str
     owner_id: int
+    session_name: str
     default_message_text: str
     default_interval_minutes: int
     log_level: str
-    connection_mode: str
     proxy: ProxySettings | None
+
+
+def session_file(session_name: str) -> Path:
+    """Путь к файлу сессии Hydrogram."""
+    return DATA_DIR / f"{session_name}.session"
 
 
 def ensure_dirs() -> None:
@@ -93,19 +92,22 @@ def _require_int(name: str, *, minimum: int | None = None) -> int:
 
 
 def _optional_int(name: str, fallback: int, *, minimum: int = 1) -> int:
-    raw = (os.getenv(name) or "").strip()
-    if not raw:
+    if not (os.getenv(name) or "").strip():
         return fallback
     return _require_int(name, minimum=minimum)
 
 
-def _connection_mode() -> str:
-    mode = _optional("CONNECTION_MODE", DEFAULT_CONNECTION_MODE).lower()
-    if mode not in CONNECTION_MODES:
+def _session_name() -> str:
+    """Имя сессии; лишнее расширение .session отбрасывается."""
+    name = _optional("SESSION_NAME", DEFAULT_SESSION_NAME)
+    if name.endswith(".session"):
+        name = name[: -len(".session")]
+    if not _SESSION_NAME_RE.match(name):
         raise ConfigError(
-            f"CONNECTION_MODE должен быть одним из {', '.join(CONNECTION_MODES)}. Получено: {mode}"
+            "SESSION_NAME может содержать только латиницу, цифры, точку, дефис и «_». "
+            f"Получено: {name}"
         )
-    return mode
+    return name
 
 
 def _load_proxy() -> ProxySettings | None:
@@ -117,16 +119,12 @@ def _load_proxy() -> ProxySettings | None:
         raise ConfigError(
             f"PROXY_TYPE должен быть одним из {', '.join(PROXY_TYPES)}. Получено: {kind}"
         )
-    secret = _optional("PROXY_SECRET")
-    if kind == "mtproxy" and not secret:
-        raise ConfigError("Для PROXY_TYPE=mtproxy нужно задать PROXY_SECRET")
     return ProxySettings(
         kind=kind,
         host=_require("PROXY_HOST"),
         port=_require_int("PROXY_PORT", minimum=1),
         username=_optional("PROXY_USER") or None,
         password=_optional("PROXY_PASS") or None,
-        secret=secret or None,
     )
 
 
@@ -138,9 +136,9 @@ def load_config() -> Config:
         api_hash=_require("API_HASH"),
         bot_token=_require("BOT_TOKEN"),
         owner_id=_require_int("OWNER_ID", minimum=1),
+        session_name=_session_name(),
         default_message_text=_optional("MESSAGE_TEXT"),
         default_interval_minutes=_optional_int("INTERVAL_MINUTES", DEFAULT_INTERVAL_MINUTES),
         log_level=_optional("LOG_LEVEL", DEFAULT_LOG_LEVEL).upper(),
-        connection_mode=_connection_mode(),
         proxy=_load_proxy(),
     )

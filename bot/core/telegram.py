@@ -1,76 +1,55 @@
-"""Создание Telethon-клиента: транспорт, прокси, параметры переподключения."""
+"""Создание Hydrogram-клиента: сессия, прокси, параметры подключения."""
 
 from __future__ import annotations
 
+from hydrogram import Client
 from loguru import logger
-from telethon import TelegramClient
-from telethon.network import (
-    ConnectionTcpAbridged,
-    ConnectionTcpFull,
-    ConnectionTcpIntermediate,
-    ConnectionTcpMTProxyRandomizedIntermediate,
-    ConnectionTcpObfuscated,
-)
 
-from core.config import SESSION_PATH, Config, ProxySettings
-
-#: Имя режима из .env -> класс транспорта Telethon.
-CONNECTION_CLASSES = {
-    "full": ConnectionTcpFull,
-    "abridged": ConnectionTcpAbridged,
-    "intermediate": ConnectionTcpIntermediate,
-    "obfuscated": ConnectionTcpObfuscated,
-}
-
-#: Сколько раз Telethon пробует переподключиться, прежде чем сдаться.
-CONNECTION_RETRIES = 5
-RETRY_DELAY_SECONDS = 2
-CONNECT_TIMEOUT_SECONDS = 20
+from core.config import DATA_DIR, Config, ProxySettings, session_file
 
 
-def _proxy_kwargs(proxy: ProxySettings | None, connection_mode: str) -> dict:
-    """Готовит аргументы транспорта и прокси для TelegramClient."""
+def _proxy_dict(proxy: ProxySettings | None) -> dict | None:
+    """Переводит настройки прокси в формат Hydrogram."""
     if proxy is None:
-        return {"connection": CONNECTION_CLASSES[connection_mode]}
-
-    if proxy.is_mtproxy:
-        # MTProxy работает только со своим транспортом.
-        return {
-            "connection": ConnectionTcpMTProxyRandomizedIntermediate,
-            "proxy": (proxy.host, proxy.port, proxy.secret),
-        }
-
+        return None
     settings: dict[str, object] = {
-        "proxy_type": proxy.kind,
-        "addr": proxy.host,
+        "scheme": proxy.kind,
+        "hostname": proxy.host,
         "port": proxy.port,
-        "rdns": True,
     }
     if proxy.username:
         settings["username"] = proxy.username
     if proxy.password:
         settings["password"] = proxy.password
-    return {"connection": CONNECTION_CLASSES[connection_mode], "proxy": settings}
+    return settings
 
 
 def describe_connection(config: Config) -> str:
     """Строка для логов: как именно бот идёт в Telegram."""
     if config.proxy is None:
-        return f"напрямую, транспорт {config.connection_mode}"
-    proxy = config.proxy
-    transport = "mtproxy" if proxy.is_mtproxy else config.connection_mode
-    return f"через {proxy.kind} {proxy.host}:{proxy.port}, транспорт {transport}"
+        return "напрямую"
+    return f"через {config.proxy.kind} {config.proxy.host}:{config.proxy.port}"
 
 
-def build_client(config: Config) -> TelegramClient:
-    """Единая точка создания Telethon-клиента для бота и скриптов."""
-    logger.info("Подключение к Telegram: {}", describe_connection(config))
-    return TelegramClient(
-        str(SESSION_PATH),
-        config.api_id,
-        config.api_hash,
-        connection_retries=CONNECTION_RETRIES,
-        retry_delay=RETRY_DELAY_SECONDS,
-        timeout=CONNECT_TIMEOUT_SECONDS,
-        **_proxy_kwargs(config.proxy, config.connection_mode),
+def build_client(config: Config) -> Client:
+    """Единая точка создания Hydrogram-клиента для бота и скриптов.
+
+    Вызывать только внутри запущенного event loop: конструктор Hydrogram
+    обращается к `asyncio.get_event_loop()`.
+    """
+    path = session_file(config.session_name)
+    logger.info(
+        "Клиент Telegram: сессия {} ({}), подключение {}",
+        path,
+        "найдена" if path.exists() else "будет создана",
+        describe_connection(config),
+    )
+    return Client(
+        name=config.session_name,
+        api_id=config.api_id,
+        api_hash=config.api_hash,
+        workdir=str(DATA_DIR),
+        proxy=_proxy_dict(config.proxy),
+        # Бот только отправляет сообщения, входящие апдейты ему не нужны.
+        no_updates=True,
     )

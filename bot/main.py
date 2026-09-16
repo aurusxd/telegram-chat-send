@@ -1,4 +1,4 @@
-"""Точка входа: собирает Telethon-клиент, управляющего бота и слайсы."""
+"""Точка входа: собирает Hydrogram-клиент, управляющего бота и слайсы."""
 
 from __future__ import annotations
 
@@ -13,14 +13,13 @@ from aiogram.fsm.storage.memory import MemoryStorage  # noqa: E402
 from loguru import logger  # noqa: E402
 
 from broadcast import handlers as broadcast_handlers  # noqa: E402
-from channels import handlers as channels_handlers  # noqa: E402
-from channels.service import ChannelService  # noqa: E402
 from broadcast.scheduler import Scheduler  # noqa: E402
 from broadcast.sender import ChannelSender  # noqa: E402
+from channels import handlers as channels_handlers  # noqa: E402
+from channels.service import ChannelService  # noqa: E402
 from core import menu  # noqa: E402
 from core.config import (  # noqa: E402
     DEFAULT_LOG_LEVEL,
-    SESSION_PATH,
     Config,
     ConfigError,
     ensure_dirs,
@@ -28,9 +27,9 @@ from core.config import (  # noqa: E402
 )
 from core.errors import TelegramConnectionError  # noqa: E402
 from core.logger import setup_logging  # noqa: E402
-from core.telegram import build_client  # noqa: E402
 from core.security import protect  # noqa: E402
 from core.state import State, load_state  # noqa: E402
+from core.telegram import build_client  # noqa: E402
 from interval import handlers as interval_handlers  # noqa: E402
 from interval.service import IntervalService  # noqa: E402
 from message import handlers as message_handlers  # noqa: E402
@@ -38,7 +37,7 @@ from message.service import MessageService  # noqa: E402
 
 
 class Application:
-    """Связывает состояние, Telethon и управляющего бота."""
+    """Связывает состояние, Hydrogram и управляющего бота."""
 
     def __init__(self, config: Config) -> None:
         self._config = config
@@ -73,14 +72,21 @@ class Application:
         return dispatcher
 
     async def run(self) -> None:
-        # Первый запуск спросит телефон и код, дальше сессия переиспользуется.
+        # Без готовой сессии Hydrogram спросит телефон, код и пароль 2FA.
         try:
             await self._client.start()
         except (OSError, EOFError, TimeoutError) as exc:
             raise TelegramConnectionError(
                 f"соединение с Telegram оборвалось ({exc.__class__.__name__}: {exc})"
             ) from exc
-        logger.info("Telethon-клиент авторизован, сессия: {}.session", SESSION_PATH)
+
+        me = await self._client.get_me()
+        logger.info(
+            "Аккаунт отправителя: {} (id={}), сессия {}",
+            me.first_name,
+            me.id,
+            self._config.session_name,
+        )
         logger.info("Управляющий бот запущен, владелец: {}", self._config.owner_id)
         try:
             await self._dispatcher.start_polling(self._bot)
@@ -89,7 +95,8 @@ class Application:
 
     async def _shutdown(self) -> None:
         self._scheduler.stop()
-        await self._client.disconnect()
+        if self._client.is_connected:
+            await self._client.stop()
         await self._bot.session.close()
         logger.info("Приложение остановлено")
 
@@ -113,9 +120,8 @@ def main() -> int:
     except TelegramConnectionError as exc:
         logger.error("Не удалось подключиться к Telegram: {}", exc)
         logger.error(
-            "Похоже на блокировку трафика до серверов Telegram. Попробуйте "
-            "CONNECTION_MODE=obfuscated или задайте прокси (PROXY_TYPE/PROXY_HOST/"
-            "PROXY_PORT) в .env — подробности в README."
+            "Похоже на блокировку трафика до серверов Telegram. Задайте прокси "
+            "(PROXY_TYPE/PROXY_HOST/PROXY_PORT) в .env — подробности в README."
         )
         return 2
     except KeyboardInterrupt:
