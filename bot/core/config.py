@@ -15,6 +15,10 @@ SESSION_PATH = DATA_DIR / "session"
 STATE_PATH = DATA_DIR / "state.json"
 
 
+#: Интервал по умолчанию, если он не задан ни в .env, ни в state.json.
+DEFAULT_INTERVAL_MINUTES = 15
+
+
 class ConfigError(RuntimeError):
     """Конфигурация отсутствует или некорректна."""
 
@@ -27,9 +31,8 @@ class Config:
     api_hash: str
     bot_token: str
     owner_id: int
-    channel: str
-    message_text: str
-    interval_minutes: int
+    default_message_text: str
+    default_interval_minutes: int
 
 
 def ensure_dirs() -> None:
@@ -45,6 +48,10 @@ def _require(name: str) -> str:
     return value
 
 
+def _optional(name: str, fallback: str = "") -> str:
+    return (os.getenv(name) or "").strip() or fallback
+
+
 def _require_int(name: str, *, minimum: int | None = None) -> int:
     raw = _require(name)
     try:
@@ -56,6 +63,13 @@ def _require_int(name: str, *, minimum: int | None = None) -> int:
     return value
 
 
+def _optional_int(name: str, fallback: int, *, minimum: int = 1) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return fallback
+    return _require_int(name, minimum=minimum)
+
+
 def load_config() -> Config:
     """Читает .env и валидирует значения до старта приложения."""
     load_dotenv(BASE_DIR / ".env")
@@ -64,7 +78,6 @@ def load_config() -> Config:
         api_hash=_require("API_HASH"),
         bot_token=_require("BOT_TOKEN"),
         owner_id=_require_int("OWNER_ID", minimum=1),
-        channel=_require("CHANNEL"),
-        message_text=_require("MESSAGE_TEXT"),
-        interval_minutes=_require_int("INTERVAL_MINUTES", minimum=1),
+        default_message_text=_optional("MESSAGE_TEXT"),
+        default_interval_minutes=_optional_int("INTERVAL_MINUTES", DEFAULT_INTERVAL_MINUTES),
     )

@@ -14,12 +14,14 @@ from loguru import logger  # noqa: E402
 from telethon import TelegramClient  # noqa: E402
 
 from broadcast import handlers as broadcast_handlers  # noqa: E402
+from channels import handlers as channels_handlers  # noqa: E402
+from channels.service import ChannelService  # noqa: E402
 from broadcast.scheduler import Scheduler  # noqa: E402
 from broadcast.sender import ChannelSender  # noqa: E402
 from core import menu  # noqa: E402
 from core.config import SESSION_PATH, Config, ConfigError, ensure_dirs, load_config  # noqa: E402
 from core.security import protect  # noqa: E402
-from core.state import State  # noqa: E402
+from core.state import State, load_state  # noqa: E402
 
 
 class Application:
@@ -27,11 +29,13 @@ class Application:
 
     def __init__(self, config: Config) -> None:
         self._config = config
-        self._state = State(
-            channels=[config.channel],
-            message_text=config.message_text,
-            interval_minutes=config.interval_minutes,
+        self._state = load_state(
+            default=State(
+                message_text=config.default_message_text,
+                interval_minutes=config.default_interval_minutes,
+            )
         )
+        self._channel_service = ChannelService(self._state)
         self._client = TelegramClient(str(SESSION_PATH), config.api_id, config.api_hash)
         self._scheduler = Scheduler(ChannelSender(self._client), self._state)
         self._bot = Bot(token=config.bot_token)
@@ -42,8 +46,10 @@ class Application:
         dispatcher = Dispatcher(storage=MemoryStorage())
         dispatcher["app_state"] = self._state
         dispatcher["scheduler"] = self._scheduler
+        dispatcher["channel_service"] = self._channel_service
         protect(dispatcher, self._config.owner_id)
         dispatcher.include_router(menu.router)
+        dispatcher.include_router(channels_handlers.router)
         dispatcher.include_router(broadcast_handlers.router)
         return dispatcher
 

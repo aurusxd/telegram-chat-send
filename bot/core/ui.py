@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from core.state import State
 
 MENU_ROOT = "menu:root"
+CHANNELS_MENU = "channels:menu"
 BROADCAST_START = "broadcast:start"
 BROADCAST_STOP = "broadcast:stop"
 
@@ -37,7 +38,12 @@ def main_menu_keyboard(app_state: State) -> InlineKeyboardMarkup:
         if app_state.is_running
         else InlineKeyboardButton(text="▶️ Старт", callback_data=BROADCAST_START)
     )
-    return InlineKeyboardMarkup(inline_keyboard=[[run_button]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Каналы", callback_data=CHANNELS_MENU)],
+            [run_button],
+        ]
+    )
 
 
 def main_menu_text(app_state: State) -> str:
