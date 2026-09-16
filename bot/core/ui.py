@@ -9,6 +9,7 @@ from core.state import State
 
 MENU_ROOT = "menu:root"
 CHANNELS_MENU = "channels:menu"
+MESSAGE_MENU = "message:menu"
 BROADCAST_START = "broadcast:start"
 BROADCAST_STOP = "broadcast:stop"
 
@@ -40,7 +41,10 @@ def main_menu_keyboard(app_state: State) -> InlineKeyboardMarkup:
     )
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Каналы", callback_data=CHANNELS_MENU)],
+            [
+                InlineKeyboardButton(text="📋 Каналы", callback_data=CHANNELS_MENU),
+                InlineKeyboardButton(text="✏️ Сообщение", callback_data=MESSAGE_MENU),
+            ],
             [run_button],
         ]
     )
