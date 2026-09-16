@@ -19,7 +19,14 @@ from channels.service import ChannelService  # noqa: E402
 from broadcast.scheduler import Scheduler  # noqa: E402
 from broadcast.sender import ChannelSender  # noqa: E402
 from core import menu  # noqa: E402
-from core.config import SESSION_PATH, Config, ConfigError, ensure_dirs, load_config  # noqa: E402
+from core.config import (  # noqa: E402
+    DEFAULT_LOG_LEVEL,
+    SESSION_PATH,
+    Config,
+    ConfigError,
+    ensure_dirs,
+    load_config,
+)
 from core.logger import setup_logging  # noqa: E402
 from core.security import protect  # noqa: E402
 from core.state import State, load_state  # noqa: E402
@@ -83,8 +90,11 @@ class Application:
 
 async def run() -> None:
     ensure_dirs()
+    # Логи включаем до чтения .env, чтобы ошибки конфигурации тоже попали в файл.
+    setup_logging()
     config = load_config()
-    setup_logging(config.log_level)
+    if config.log_level != DEFAULT_LOG_LEVEL:
+        setup_logging(config.log_level)
     await Application(config).run()
 
 

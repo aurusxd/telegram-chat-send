@@ -1,0 +1,14 @@
+services:
+  bot:
+    build: .
+    container_name: telegram-broadcast-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Telethon-сессия и state.json переживают пересборку образа
+      - ./data:/app/data
+      - ./logs:/app/logs
+    # Нужны для первой авторизации Telethon: docker compose run --rm bot
+    stdin_open: true
+    tty: true

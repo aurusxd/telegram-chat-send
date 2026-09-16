@@ -16,6 +16,8 @@ STATE_PATH = DATA_DIR / "state.json"
 LOG_PATH = LOGS_DIR / "bot.log"
 
 
+DEFAULT_LOG_LEVEL = "INFO"
+
 #: Интервал по умолчанию, если он не задан ни в .env, ни в state.json.
 DEFAULT_INTERVAL_MINUTES = 15
 
@@ -82,5 +84,5 @@ def load_config() -> Config:
         owner_id=_require_int("OWNER_ID", minimum=1),
         default_message_text=_optional("MESSAGE_TEXT"),
         default_interval_minutes=_optional_int("INTERVAL_MINUTES", DEFAULT_INTERVAL_MINUTES),
-        log_level=_optional("LOG_LEVEL", "INFO").upper(),
+        log_level=_optional("LOG_LEVEL", DEFAULT_LOG_LEVEL).upper(),
     )

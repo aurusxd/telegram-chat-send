@@ -7,13 +7,13 @@ from pathlib import Path
 
 from loguru import logger
 
-from core.config import LOG_PATH
+from core.config import DEFAULT_LOG_LEVEL, LOG_PATH
 
 CONSOLE_FORMAT = "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}"
 FILE_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
 
 
-def setup_logging(level: str = "INFO", log_path: Path = LOG_PATH) -> None:
+def setup_logging(level: str = DEFAULT_LOG_LEVEL, log_path: Path = LOG_PATH) -> None:
     """Включает вывод в консоль и в файл с ротацией и хранением 14 дней."""
     log_path.parent.mkdir(parents=True, exist_ok=True)
     logger.remove()
