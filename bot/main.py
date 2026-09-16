@@ -22,6 +22,8 @@ from core import menu  # noqa: E402
 from core.config import SESSION_PATH, Config, ConfigError, ensure_dirs, load_config  # noqa: E402
 from core.security import protect  # noqa: E402
 from core.state import State, load_state  # noqa: E402
+from interval import handlers as interval_handlers  # noqa: E402
+from interval.service import IntervalService  # noqa: E402
 from message import handlers as message_handlers  # noqa: E402
 from message.service import MessageService  # noqa: E402
 
@@ -39,6 +41,7 @@ class Application:
         )
         self._channel_service = ChannelService(self._state)
         self._message_service = MessageService(self._state)
+        self._interval_service = IntervalService(self._state)
         self._client = TelegramClient(str(SESSION_PATH), config.api_id, config.api_hash)
         self._scheduler = Scheduler(ChannelSender(self._client), self._state)
         self._bot = Bot(token=config.bot_token)
@@ -51,10 +54,12 @@ class Application:
         dispatcher["scheduler"] = self._scheduler
         dispatcher["channel_service"] = self._channel_service
         dispatcher["message_service"] = self._message_service
+        dispatcher["interval_service"] = self._interval_service
         protect(dispatcher, self._config.owner_id)
         dispatcher.include_router(menu.router)
         dispatcher.include_router(channels_handlers.router)
         dispatcher.include_router(message_handlers.router)
+        dispatcher.include_router(interval_handlers.router)
         dispatcher.include_router(broadcast_handlers.router)
         return dispatcher
 
