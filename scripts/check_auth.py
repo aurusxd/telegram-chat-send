@@ -14,7 +14,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bot"))
 
-from telethon import TelegramClient  # noqa: E402
 from telethon.errors import (  # noqa: E402
     ApiIdInvalidError,
     FloodWaitError,
@@ -23,7 +22,8 @@ from telethon.errors import (  # noqa: E402
     RPCError,
 )
 
-from core.config import SESSION_PATH, ConfigError, ensure_dirs, load_config  # noqa: E402
+from core.config import ConfigError, ensure_dirs, load_config  # noqa: E402
+from core.telegram import build_client, describe_connection  # noqa: E402
 
 #: Пояснение по каждому способу доставки кода.
 DELIVERY_HINTS = {
@@ -68,8 +68,14 @@ async def main() -> int:
     config = load_config()
     phone = input("Номер в международном формате (например, +79991234567): ").strip()
 
-    client = TelegramClient(str(SESSION_PATH), config.api_id, config.api_hash)
-    await client.connect()
+    client = build_client(config)
+    print(f"Способ подключения: {describe_connection(config)}")
+    try:
+        await client.connect()
+    except OSError as exc:
+        print(f"❌ Не удалось подключиться к Telegram: {exc}")
+        print("   Похоже на блокировку соединения — попробуйте прокси или VPN.")
+        return 1
     print(f"Подключение к Telegram: DC {client.session.dc_id}")
 
     if await client.is_user_authorized():

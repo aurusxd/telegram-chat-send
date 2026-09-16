@@ -9,3 +9,7 @@ class ValidationError(ValueError):
     Текст исключения показывается владельцу в чате, поэтому пишется
     человеческим языком.
     """
+
+
+class TelegramConnectionError(RuntimeError):
+    """Не удалось подключиться к серверам Telegram."""

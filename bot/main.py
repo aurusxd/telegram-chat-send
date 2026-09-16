@@ -11,7 +11,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from aiogram import Bot, Dispatcher  # noqa: E402
 from aiogram.fsm.storage.memory import MemoryStorage  # noqa: E402
 from loguru import logger  # noqa: E402
-from telethon import TelegramClient  # noqa: E402
 
 from broadcast import handlers as broadcast_handlers  # noqa: E402
 from channels import handlers as channels_handlers  # noqa: E402
@@ -27,7 +26,9 @@ from core.config import (  # noqa: E402
     ensure_dirs,
     load_config,
 )
+from core.errors import TelegramConnectionError  # noqa: E402
 from core.logger import setup_logging  # noqa: E402
+from core.telegram import build_client  # noqa: E402
 from core.security import protect  # noqa: E402
 from core.state import State, load_state  # noqa: E402
 from interval import handlers as interval_handlers  # noqa: E402
@@ -50,7 +51,7 @@ class Application:
         self._channel_service = ChannelService(self._state)
         self._message_service = MessageService(self._state)
         self._interval_service = IntervalService(self._state)
-        self._client = TelegramClient(str(SESSION_PATH), config.api_id, config.api_hash)
+        self._client = build_client(config)
         self._scheduler = Scheduler(ChannelSender(self._client), self._state)
         self._bot = Bot(token=config.bot_token)
         self._dispatcher = self._build_dispatcher()
@@ -73,7 +74,12 @@ class Application:
 
     async def run(self) -> None:
         # Первый запуск спросит телефон и код, дальше сессия переиспользуется.
-        await self._client.start()
+        try:
+            await self._client.start()
+        except (OSError, EOFError, TimeoutError) as exc:
+            raise TelegramConnectionError(
+                f"соединение с Telegram оборвалось ({exc.__class__.__name__}: {exc})"
+            ) from exc
         logger.info("Telethon-клиент авторизован, сессия: {}.session", SESSION_PATH)
         logger.info("Управляющий бот запущен, владелец: {}", self._config.owner_id)
         try:
@@ -104,6 +110,14 @@ def main() -> int:
     except ConfigError as exc:
         logger.error("Ошибка конфигурации: {}", exc)
         return 1
+    except TelegramConnectionError as exc:
+        logger.error("Не удалось подключиться к Telegram: {}", exc)
+        logger.error(
+            "Похоже на блокировку трафика до серверов Telegram. Попробуйте "
+            "CONNECTION_MODE=obfuscated или задайте прокси (PROXY_TYPE/PROXY_HOST/"
+            "PROXY_PORT) в .env — подробности в README."
+        )
+        return 2
     except KeyboardInterrupt:
         logger.info("Остановлено пользователем")
     return 0
