@@ -1,0 +1,4 @@
+telethon==1.45.0
+aiogram==3.31.0
+python-dotenv==1.2.3
+loguru==0.7.3
