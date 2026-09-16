@@ -59,7 +59,16 @@ docker compose up -d
 
 ## Код подтверждения не приходит
 
-Диагностика — скрипт показывает, каким способом Telegram отправил код:
+Диагностика — скрипт показывает, каким способом Telegram отправил код.
+
+В Docker (зависимости уже в образе):
+
+```bash
+docker compose build
+docker compose run --rm bot python scripts/check_auth.py
+```
+
+Локально, в venv проекта:
 
 ```bash
 python scripts/check_auth.py
