@@ -25,6 +25,8 @@ class Config:
 
     api_id: int
     api_hash: str
+    bot_token: str
+    owner_id: int
     channel: str
     message_text: str
     interval_minutes: int
@@ -60,6 +62,8 @@ def load_config() -> Config:
     return Config(
         api_id=_require_int("API_ID", minimum=1),
         api_hash=_require("API_HASH"),
+        bot_token=_require("BOT_TOKEN"),
+        owner_id=_require_int("OWNER_ID", minimum=1),
         channel=_require("CHANNEL"),
         message_text=_require("MESSAGE_TEXT"),
         interval_minutes=_require_int("INTERVAL_MINUTES", minimum=1),
