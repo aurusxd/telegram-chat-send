@@ -20,6 +20,7 @@ from broadcast.scheduler import Scheduler  # noqa: E402
 from broadcast.sender import ChannelSender  # noqa: E402
 from core import menu  # noqa: E402
 from core.config import SESSION_PATH, Config, ConfigError, ensure_dirs, load_config  # noqa: E402
+from core.logger import setup_logging  # noqa: E402
 from core.security import protect  # noqa: E402
 from core.state import State, load_state  # noqa: E402
 from interval import handlers as interval_handlers  # noqa: E402
@@ -82,7 +83,9 @@ class Application:
 
 async def run() -> None:
     ensure_dirs()
-    await Application(load_config()).run()
+    config = load_config()
+    setup_logging(config.log_level)
+    await Application(config).run()
 
 
 def main() -> int:

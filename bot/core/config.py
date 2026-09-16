@@ -13,6 +13,7 @@ DATA_DIR = BASE_DIR / "data"
 LOGS_DIR = BASE_DIR / "logs"
 SESSION_PATH = DATA_DIR / "session"
 STATE_PATH = DATA_DIR / "state.json"
+LOG_PATH = LOGS_DIR / "bot.log"
 
 
 #: Интервал по умолчанию, если он не задан ни в .env, ни в state.json.
@@ -33,6 +34,7 @@ class Config:
     owner_id: int
     default_message_text: str
     default_interval_minutes: int
+    log_level: str
 
 
 def ensure_dirs() -> None:
@@ -80,4 +82,5 @@ def load_config() -> Config:
         owner_id=_require_int("OWNER_ID", minimum=1),
         default_message_text=_optional("MESSAGE_TEXT"),
         default_interval_minutes=_optional_int("INTERVAL_MINUTES", DEFAULT_INTERVAL_MINUTES),
+        log_level=_optional("LOG_LEVEL", "INFO").upper(),
     )
